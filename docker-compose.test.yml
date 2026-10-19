@@ -1,0 +1,26 @@
+# Compose de testes para o CI. Usar junto com o principal:
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
+services:
+  calculadora:
+    ports: !reset []             # no CI não precisa publicar porta
+    restart: "no"
+
+  cache:
+    restart: "no"
+    volumes: !reset []           # cache limpo a cada execução de teste
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  tests:
+    image: curlimages/curl:8.10.1
+    container_name: calc-tests
+    depends_on:
+      calculadora:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://calculadora:3000
+    volumes:
+      - ./tests:/tests:ro
+    entrypoint: ["sh", "/tests/test.sh"]
+    networks:
+      - frontend
+    restart: "no"

@@ -1,0 +1,51 @@
+name: calculadora
+
+services:
+  # Aplicação: a mesma imagem da atividade passada (calculadora:v1)
+  calculadora:
+    image: calculadora:v1
+    build: ./calculadora          # se a imagem não existir, o compose constrói
+    container_name: calc
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      REDIS_URL: redis://cache:6379
+      CACHE_TTL: 60
+    depends_on:
+      cache:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Cache: guarda resultados recentes e o histórico de contas
+  cache:
+    image: redis:7-alpine
+    container_name: calc-cache
+    command: ["redis-server", "--appendonly", "yes"]   # persiste em disco
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend                  # não exposto para fora, só a app enxerga
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+  frontend:                      # rede onde a app recebe as requisições
+  backend:                       # rede interna app <-> redis
+    internal: true
+
+volumes:
+  redis-data:                    # dados do Redis sobrevivem a "docker compose down"

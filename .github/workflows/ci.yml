@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar arquivos compose
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml config -q
+
+      - name: Subir stack e rodar testes
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.test.yml \
+            up --build --abort-on-container-exit --exit-code-from tests
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml logs
+
+      - name: Derrubar tudo
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
